@@ -1,0 +1,16 @@
+; Generic display helpers.
+
+:init_display
+set a, dev_lem1802
+jsr get_device
+set c, a      ; C = device number for LEM
+
+set b, vram
+set a, 0 ; Map screen
+hwi c
+
+set b, font
+set a, 1 ; Map font
+hwi c
+set pc, pop
+

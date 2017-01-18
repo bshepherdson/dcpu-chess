@@ -1,0 +1,52 @@
+; Top of the file: reset vector.
+:reset
+set pc, main
+
+.include "common.dasm"
+.include "hardware.dasm"
+.include "display.dasm"
+.include "ui.dasm"
+
+; The format for the board is:
+; 0000 0000 0000 Bppp
+; B=1 is black, ppp 1-6 is the piece: pawn, rook, knight, bishop, queen, king.
+; 0 is empty.
+
+.def white_pawn, 0x1
+.def white_rook, 0x2
+.def white_knight, 0x3
+.def white_bishop, 0x4
+.def white_queen, 0x5
+.def white_king, 0x6
+.def black_pawn, 0x9
+.def black_rook, 0xa
+.def black_knight, 0xb
+.def black_bishop, 0xc
+.def black_queen, 0xd
+.def black_king, 0xe
+.def empty, 0
+
+:initial_board
+.dat black_rook, black_knight, black_bishop, black_king
+.dat black_queen, black_bishop, black_knight, black_rook
+.fill black_pawn, 8
+.fill empty, 32 ; 8*4
+.fill white_pawn, 8
+.dat white_rook, white_knight, white_bishop, white_queen
+.dat white_king, white_bishop, white_knight, white_rook
+
+
+:main
+jsr init_hardware
+jsr init_display
+jsr set_palette
+set a, initial_board
+jsr render_board
+
+sub pc, 1
+
+
+.include "font.dasm"
+
+:vram .reserve 384
+

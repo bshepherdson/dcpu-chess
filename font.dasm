@@ -1,0 +1,92 @@
+; Characters in LEM1802 fonts are 4x8 pixels, and the display is 32x12.
+; Therefore making the chessboard 16x8 characters makes it 64x64 pixels,
+; and makes it properly square.
+
+; Therefore I need to design 2x1 character font tiles for the chess pieces.
+
+:font
+
+; Character 0 is a blank space.
+.dat 0, 0, 0, 0
+
+; Pawn
+;  12345678
+; 1
+; 2
+; 3
+; 4   XX
+; 5  XXXX
+; 6   XX
+; 7  XXXX
+; 8
+
+.dat 0x0000, 0x5078, 0x7850, 0x0000
+
+; Rook
+;  12345678
+; 1
+; 2 X XX X
+; 3 XXXXXX
+; 4  XXXX
+; 5  XXXX
+; 6  XXXX
+; 7 XXXXXX
+; 8
+
+.dat 0x0046, 0x7c7e, 0x7e7c, 0x4600
+
+; Knight
+;  12345678
+; 1
+; 2  XXXX
+; 3 XXX XX
+; 4 XXXXXXX
+; 5 XX   XX
+; 6 XXX
+; 7 XXXXX
+; 8
+
+.dat 0x007c, 0x7e6e, 0x4a4e, 0x1c18
+
+; Bishop
+;  12345678
+; 1
+; 2    X
+; 3   XXX
+; 4   XXX
+; 5    X
+; 6   XXX
+; 7  XXXXX
+; 8
+
+.dat 0x0000, 0x406c, 0x7e6c, 0x4000
+
+; Queen
+;  12345678
+; 1
+; 2  X X X
+; 3   XXX
+; 4    X
+; 5   XXX
+; 6   XXX
+; 7  XXXXX
+; 8
+
+.dat 0x0000, 0x4274, 0x7e74, 0x4200
+
+; King
+;  12345678
+; 1    X
+; 2  XXXXX
+; 3   XXX
+; 4    X
+; 5   XXX
+; 6   XXX
+; 7  XXXXX
+; 8
+
+.dat 0x0000, 0x4276, 0x7f76, 0x4200
+
+; That's 24 words of real font and 4 more of fake, and fonts are 256 words long.
+; So I reserve 228 more words.
+.reserve 228

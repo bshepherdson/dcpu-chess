@@ -1,0 +1,116 @@
+; Renders a board into VRAM. Global offset of the chess board in the VRAM space
+; is given by the variables board_x and board_y.
+
+:board_x .dat 0
+:board_y .dat 0
+
+.def fg_white, 1 ; bright white
+.def bg_white, 3 ; medium white
+.def fg_black, 0 ; black
+.def bg_black, 2 ; full black
+
+
+:render_board ; (board) -> void
+pushXY
+set x, a
+set y, 0
+:render_board_loop
+set a, x
+set b, y
+jsr render_line
+add y, 1
+ifl y, 8
+  set pc, render_board_loop
+
+retXY
+
+
+:render_line ; (board, line#) -> void
+pushXYZ
+set x, a
+set y, b
+set z, 0
+:render_line_loop
+set a, x
+set b, y
+set c, z
+jsr render_piece
+add z, 1
+ifl z, 8
+  set pc, render_line_loop
+
+retXYZ
+
+
+
+:render_piece ; (board, line, col) -> void
+pushXYZ
+set x, [board_y]
+add x, b
+shl x, 5 ; *=32
+add x, [board_x]
+add x, c
+add x, c ; Yes, do this twice: Each piece takes up 2 characters.
+add x, vram ; X is now the target address in VRAM.
+
+set y, b
+shl y, 3 ; *= 8
+add y, c
+add a, y ; [A] is the piece to be rendered.
+
+set y, [a]
+and y, 7     ; Y is just the piece number.
+shl y, 1     ; Which we shift up one, to make it the font index.
+set z, y     ; Which we save to Z.
+
+; Set the background colour based on the board position.
+; And the foreground based on the piece's colour bit.
+
+; The board tile is white if its row XOR column has bit 0 clear, black if set.
+xor b, c
+set c, bg_white
+ifb b, 1
+  set c, bg_black
+
+shl c, 8 ; Shift it to the background.
+bor z, c
+
+; [A] is still the piece we want. Pieces are black if bit 3 is set.
+set c, fg_white
+ifb [a], 8
+  set c, fg_black
+
+shl c, 12 ; Shift to foreground.
+bor z, c
+
+; Now we write Z to [X] and Z+1 to [X+1], actually writing to VRAM.
+set [x], z
+add z, 1
+set [x+1], z
+
+retXYZ
+
+
+
+
+
+
+; Sets the LEM to use the custom palette.
+:set_palette ; () -> void
+set a, dev_lem1802
+jsr get_device ; A is now the LEM's device number.
+set c, a
+set a, 2 ; Set palette.
+set b, palette
+hwi c ; Palette updated!
+set pc, pop
+
+
+
+; Palettes are 16 words long, each word is 0000 rrrr gggg bbbb.
+:palette
+.dat 0      ; Black pieces: pure black
+.dat 0x0fff ; White pieces: pure white
+.dat 0x0930 ; Black squares: brown
+.dat 0x0ca5 ; White squares: tan
+.reserve 8 ; 8 more blacks for spacing.
