@@ -92,6 +92,49 @@ retXYZ
 
 
 
+; Returns the address in VRAM of the (left side of the) given tile on the board.
+:pos_to_vram ; (row, col) -> addr
+shl b, 1 ; Two spaces per column.
+shl a, 5 ; 32 words per row.
+add a, [board_y]
+add b, [board_x]
+add a, vram
+add a, b
+set pc, pop
+
+
+
+; Cursor control.
+; The cursor moves within the game board only. Its board-relative, 0-based
+; coordinates are stored in cursor_x and cursor_y.
+; The cursor moves with the arrow keys and it appears as a blue background.
+:cursor_x .dat 3
+:cursor_y .dat 7
+
+.def bg_cursor, 4
+
+; Finds the cursor's current position and edits that VRAM cell to have the
+; cursor's colour. Should be called after render_board.
+:render_cursor ; () -> void
+set a, [cursor_y]
+set b, [cursor_x]
+jsr pos_to_vram ; A is now the address of the left cell in VRAM.
+
+set push, a
+jsr paint_cursor_bg
+set a, pop
+add a, 1
+set pc, paint_cursor_bg ; Tail call
+
+
+:paint_cursor_bg ; (addr in vram) -> void
+set b, [a]
+and b, 0xf0ff ; Mask out the bg slot.
+set c, bg_cursor
+shl c, 8 ; Shift it to the bg slot.
+bor b, c
+set [a], b
+set pc, pop
 
 
 
@@ -113,4 +156,5 @@ set pc, pop
 .dat 0x0fff ; White pieces: pure white
 .dat 0x0930 ; Black squares: brown
 .dat 0x0ca5 ; White squares: tan
-.reserve 8 ; 8 more blacks for spacing.
+.dat 0x006f ; Cursor background: medium blue
+.reserve 7 ; 7 more blacks to fill up the palette.

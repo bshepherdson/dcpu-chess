@@ -60,6 +60,7 @@ jsr copy
 
 ; And render it.
 jsr render_board
+jsr render_cursor
 
 sub pc, 1
 
