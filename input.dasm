@@ -1,0 +1,77 @@
+; Input handling for Chess.
+
+; Blocks until a key is available, then returns the key.
+:get_key ; () -> keycode
+set a, dev_keyboard
+jsr get_device ; A is now the keyboard's hardware number.
+set push, x
+set x, a
+:get_key_loop
+set a, 1 ; get_next
+hwi x ; C is the next character, or 0 if none.
+ife c, 0
+  set pc, get_key_loop
+
+; Found a key.
+set x, pop
+set a, c
+set pc, pop
+
+
+
+:handle_key ; () -> void
+jsr get_key ; A is now the latest key.
+
+set b, key_handlers
+:handle_key_loop
+ife a, [b]
+  set pc, handle_key_match
+add b, key_handler_width
+ifl b, key_handlers_end
+  set pc, handle_key_loop
+
+; Ran out of key handlers - treat it as a no-op and get another key.
+set pc, handle_key
+
+:handle_key_match ; Found a matching key, the handler is at [b+1]
+set pc, [b+1] ; Tail call to the handler.
+
+
+
+.def key_handler_width, 2
+:key_handlers
+.dat 0x80, kh_up
+.dat 0x81, kh_down
+.dat 0x82, kh_left
+.dat 0x83, kh_right
+:key_handlers_end
+
+:kh_up ; () -> void
+set a, [cursor_y]
+ifg a, 0
+  sub a, 1
+set [cursor_y], a
+set pc, pop
+
+:kh_down ; () -> void
+set a, [cursor_y]
+ifl a, 7
+  add a, 1
+set [cursor_y], a
+set pc, pop
+
+:kh_left ; () -> void
+set a, [cursor_x]
+ifg a, 0
+  sub a, 1
+set [cursor_x], a
+set pc, pop
+
+:kh_right ; () -> void
+set a, [cursor_x]
+ifl a, 7
+  add a, 1
+set [cursor_x], a
+set pc, pop
+
+

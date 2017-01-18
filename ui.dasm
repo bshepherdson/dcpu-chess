@@ -21,7 +21,6 @@ jsr render_line
 add y, 1
 ifl y, 8
   set pc, render_board_loop
-
 retXY
 
 

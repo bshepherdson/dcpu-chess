@@ -6,6 +6,7 @@ set pc, main
 .include "hardware.dasm"
 .include "display.dasm"
 .include "ui.dasm"
+.include "input.dasm"
 
 ; The format for the board is:
 ; 0000 0000 0000 Bppp
@@ -52,17 +53,23 @@ jsr init_hardware
 jsr init_display
 jsr set_palette
 
+set pc, new_game
+
+
+:new_game ; () -> void
 ; Copy the initial board to the mutable board.
 set a, initial_board
 set b, board
 set c, 64
 jsr copy
 
-; And render it.
+; And accept input while rendering it.
+:game_loop
+set a, board
 jsr render_board
 jsr render_cursor
-
-sub pc, 1
+jsr handle_key
+set pc, game_loop
 
 
 .include "font.dasm"
