@@ -35,12 +35,30 @@ set pc, main
 .dat white_rook, white_knight, white_bishop, white_queen
 .dat white_king, white_bishop, white_knight, white_rook
 
+:board .reserve 64
+
+:copy ; (src, dst, len) -> void
+ife c, 0
+  set pc, pop
+set [b], [a]
+add a, 1
+add b, 1
+sub c, 1
+set pc, copy
+
 
 :main
 jsr init_hardware
 jsr init_display
 jsr set_palette
+
+; Copy the initial board to the mutable board.
 set a, initial_board
+set b, board
+set c, 64
+jsr copy
+
+; And render it.
 jsr render_board
 
 sub pc, 1
