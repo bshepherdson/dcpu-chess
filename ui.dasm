@@ -102,18 +102,18 @@ retXYZ
 
 ; Draws the numbers and letters for the ranks and files.
 :label_board ; () -> void
-set a, 0
-set b, 8 ; Off the edge
+set a, 7 ; Upper-right square.
 jsr pos_to_vram ; A is the address in VRAM.
+add a, 2 ; Just off the edge of the board.
 
 set b, rank_labels
 set c, rank_delta
 jsr label_strip ; Labels the ranks (rows)
 
-set a, 8
-set b, 0
+set a, 56 ; Lower-left
 jsr pos_to_vram
-add a, 1
+add a, 33 ; One row down, one space right.
+
 set b, file_labels
 set c, file_delta
 set pc, label_strip ; tail call; labels the files (columns)
@@ -151,10 +151,13 @@ set pc, copy ; Tail call
 
 
 ; Returns the address in VRAM of the (left side of the) given tile on the board.
-:pos_to_vram ; (row, col) -> addr
+:pos_to_vram ; (index) -> addr
+set b, a
+and b, 7 ; B is the file/column.
 shl b, 1 ; Two spaces per column.
-shl a, 5 ; 32 words per row.
+shr a, 3 ; A is the rank/row.
 add a, [board_y]
+shl a, 5 ; 32 words per row.
 add b, [board_x]
 add a, vram
 add a, b
@@ -163,35 +166,47 @@ set pc, pop
 
 
 ; Cursor control.
-; The cursor moves within the game board only. Its board-relative, 0-based
-; coordinates are stored in cursor_x and cursor_y.
+; The cursor moves within the game board only. Its board index (0-based)
+; is stored in [cursor].
 ; The cursor moves with the arrow keys and it appears as a blue background.
-:cursor_x .dat 3
-:cursor_y .dat 7
+:cursor .dat 60 ; White queen
 
 .def bg_cursor, 4
+.def bg_selection, 6
 
 ; Finds the cursor's current position and edits that VRAM cell to have the
 ; cursor's colour. Should be called after render_board.
 :render_cursor ; () -> void
-set a, [cursor_y]
-set b, [cursor_x]
+set a, [cursor]
+set b, bg_cursor
+jsr replace_bg
+
+set a, [selected]
+ife a, -1
+  set pc, pop
+set b, bg_selection
+set pc, replace_bg ; Tail call
+
+
+; Given a board index and a colour number, overwrites that square's background.
+:replace_bg ; (board index, colour) -> void
+set push, b
 jsr pos_to_vram ; A is now the address of the left cell in VRAM.
 
+set b, peek
 set push, a
 jsr paint_cursor_bg
 set a, pop
 add a, 1
+set b, pop
 set pc, paint_cursor_bg ; Tail call
 
-
-:paint_cursor_bg ; (addr in vram) -> void
-set b, [a]
-and b, 0xf0ff ; Mask out the bg slot.
-set c, bg_cursor
-shl c, 8 ; Shift it to the bg slot.
-bor b, c
-set [a], b
+:paint_cursor_bg ; (addr in vram, colour) -> void
+set c, [a]
+and c, 0xf0ff ; Mask out the bg slot.
+shl b, 8 ; Shift it to the bg slot.
+bor c, b
+set [a], c
 set pc, pop
 
 
@@ -210,10 +225,11 @@ set pc, pop
 
 ; Palettes are 16 words long, each word is 0000 rrrr gggg bbbb.
 :palette
-.dat 0      ; Black pieces: pure black
-.dat 0x0fff ; White pieces: pure white
-.dat 0x0930 ; Black squares: brown
-.dat 0x0ca5 ; White squares: tan
-.dat 0x006f ; Cursor background: medium blue
-.dat 0x0aaa ; Medium grey
-.reserve 6 ; 6 more blacks to fill up the palette.
+.dat 0      ; 0: Black pieces: pure black
+.dat 0x0fff ; 1: White pieces: pure white
+.dat 0x0930 ; 2: Black squares: brown
+.dat 0x0ca5 ; 3: White squares: tan
+.dat 0x006f ; 4: Cursor background: medium blue
+.dat 0x0aaa ; 5: Medium grey
+.dat 0x00a0 ; 6: Medium green (selection background)
+.reserve 9  ; Fill up the palette.

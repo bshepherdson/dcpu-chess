@@ -63,9 +63,7 @@ set pc, [b+1] ; Tail call to the handler.
 
 
 ; Some state variables: the coordinates of the selection, if any.
-:selected_x .dat 0
-:selected_y .dat 0
-:selected .dat 0 ; 0 means no selection.
+:selected .dat -1 ; -1 means no selection.
 :turn .dat 0 ; 0 = white, 1 = black
 
 
@@ -80,65 +78,57 @@ set pc, [b+1] ; Tail call to the handler.
 
 
 
-; board_addr reg, prefix
-; board_addr x, selected
-;   - sets x to the address into the board for selected_x and selected_y
-.macro board_addr=set %0, [%1_y] %n shl %0, 3 %n add %0, [%1_x] %n add %0, board
-
 ; If there's no selection, set the selection to here.
 ; If there is a selection, do the move.
 ; TODO: Validate that the moves are legal.
 :kh_space ; () -> void
-ife [selected], 0
+ife [selected], -1
   set pc, kh_space_select
 
 ; Make the move!
 ; Load the board slot for the cursor position.
-board_addr a, selected
-board_addr b, cursor
+set a, [selected]
+set b, [cursor]
 ife a, b
   set pc, pop  ; Do nothing if the src and dest are the same.
+
+add a, board
+add b, board
 
 set c, [a]     ; Pick up the piece.
 set [a], 0     ; Blank the original.
 set [b], c     ; Move the piece to the destination.
-set [selected], 0 ; Turn off selection mode.
+set [selected], -1 ; Turn off selection mode.
 xor [turn], 1  ; And toggle the current player.
+set pc, pop
 
 
 :kh_space_select ; First touch, selects the current location.
-set [selected], 1
-set [selected_x], [cursor_x]
-set [selected_y], [cursor_y]
+set [selected], [cursor]
 set pc, pop
 
 
 :kh_up ; () -> void
-set a, [cursor_y]
-ifg a, 0
-  sub a, 1
-set [cursor_y], a
+ifg [cursor], 7
+  sub [cursor], 8
 set pc, pop
 
 :kh_down ; () -> void
-set a, [cursor_y]
-ifl a, 7
-  add a, 1
-set [cursor_y], a
+ifl [cursor], 56
+  add [cursor], 8
 set pc, pop
 
 :kh_left ; () -> void
-set a, [cursor_x]
+set a, [cursor]
+and a, 7
 ifg a, 0
-  sub a, 1
-set [cursor_x], a
+  sub [cursor], 1
 set pc, pop
 
 :kh_right ; () -> void
-set a, [cursor_x]
+set a, [cursor]
+and a, 7
 ifl a, 7
-  add a, 1
-set [cursor_x], a
+  add [cursor], 1
 set pc, pop
-
 
