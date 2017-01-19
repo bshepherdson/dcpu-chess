@@ -77,6 +77,12 @@ set pc, [b+1] ; Tail call to the handler.
 :key_handlers_end
 
 
+; Several layers of validation, in increasing order of complexity:
+; - Only move you own pieces.
+; - Only capture opposing pieces (alternatively, can put pieces anywhere but
+;   on your own pieces).
+; - Can't capture the king.
+; - Can only make legal moves for the piece being moved.
 
 ; If there's no selection, set the selection to here.
 ; If there is a selection, do the move.
@@ -84,6 +90,11 @@ set pc, [b+1] ; Tail call to the handler.
 :kh_space ; () -> void
 ife [selected], -1
   set pc, kh_space_select
+
+; Validate the move.
+jsr validate_move
+ife a, 0
+  set pc, pop ; Illegal, so bail.
 
 ; Make the move!
 ; Load the board slot for the cursor position.
@@ -104,7 +115,11 @@ set pc, pop
 
 
 :kh_space_select ; First touch, selects the current location.
-set [selected], [cursor]
+set a, [cursor]
+set a, [a+board] ; The piece under the cursor.
+shr a, 3 ; Just the owner bit.
+ife a, [turn] ; Owner of this piece and the current side must match:
+  set [selected], [cursor] ; Select this piece.
 set pc, pop
 
 

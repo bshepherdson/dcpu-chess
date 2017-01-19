@@ -7,6 +7,7 @@ set pc, main
 .include "display.dasm"
 .include "ui.dasm"
 .include "input.dasm"
+.include "rules.dasm"
 
 ; The format for the board is:
 ; 0000 0000 0000 Bppp

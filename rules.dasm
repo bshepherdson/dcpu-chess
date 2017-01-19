@@ -1,0 +1,40 @@
+; Implementations of the chess rules - move generation and validation, etc.
+
+; Expects selected to point at a piece to move, and cursor to be on the target
+; space.
+; Many pieces can move any distance in a variety of directions, but are blocked
+; by other pieces. The generic way to handle that is with a "ray", an index
+; delta that we repeatedly evaluate until we either:
+; - Hit the edge of the board,
+; - Hit an ownside piece - illegal move.
+; - Hit an enemy piece - legal capture, but if it's not the target space then
+;   this ray has failed.
+; Knights and pawns have very special rules. Kings move to a fixed set of
+; spaces, which I just check directly.
+:validate_move ; () -> void
+set a, [cursor]
+set pc, legal_landing ; tail call
+; TODO Much more clever validation.
+
+
+; Returns whether landing in the given tile is legal for the current player.
+:legal_landing ; (index) -> legal?
+set b, board
+add b, a
+ife [b], empty
+  set pc, legal_landing_true
+
+; Otherwise, it's a piece. Check its side.
+set b, [b]
+shr b, 3 ; Move the owner bit to bit 0
+ifn b, [turn]
+  set pc, legal_landing_true
+
+; Otherwise it's an ownside piece: illegal landing.
+set a, 0
+set pc, pop
+
+:legal_landing_true
+set a, 1
+set pc, pop
+
