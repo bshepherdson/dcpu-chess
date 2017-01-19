@@ -68,6 +68,9 @@ jsr copy
 set a, board
 jsr render_board
 jsr render_cursor
+jsr label_board
+jsr print_turn
+
 jsr handle_key
 set pc, game_loop
 

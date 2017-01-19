@@ -90,6 +90,65 @@ set [x+1], z
 retXYZ
 
 
+:rank_labels .dat 0x1038, 0x1037, 0x1036, 0x1035
+             .dat 0x1034, 0x1033,0x1032, 0x1031
+:file_labels .dat 0x1061, 0x1062, 0x1063, 0x1064,
+             .dat 0x1065, 0x1066,0x1067, 0x1068
+.def rank_delta, 32
+.def file_delta, 2
+
+
+
+
+; Draws the numbers and letters for the ranks and files.
+:label_board ; () -> void
+set a, 0
+set b, 8 ; Off the edge
+jsr pos_to_vram ; A is the address in VRAM.
+
+set b, rank_labels
+set c, rank_delta
+jsr label_strip ; Labels the ranks (rows)
+
+set a, 8
+set b, 0
+jsr pos_to_vram
+add a, 1
+set b, file_labels
+set c, file_delta
+set pc, label_strip ; tail call; labels the files (columns)
+
+
+:label_strip ; (VRAM addr, label addr, delta) -> void
+pushX
+set x, 8
+:label_strip_loop
+set [a], [b]
+add a, c
+add b, 1
+sub x, 1
+ifg x, 0
+  set pc, label_strip_loop
+retX
+
+
+
+; Drawing informational text on the screen.
+:white_turn .dat 0x5054, 0x5075, 0x5072, 0x506e, 0x503a, 0x5020
+            .dat 0x1057, 0x1068, 0x1069, 0x1074, 0x1065
+:black_turn .dat 0x5054, 0x5075, 0x5072, 0x506e, 0x503a, 0x5020
+            .dat 0x0142, 0x016c, 0x0161, 0x0163, 0x016b
+:turn_text .dat white_turn, black_turn
+
+; Prints the current turn in the upper right.
+:print_turn ; () ->
+set b, vram + 32 + 20
+set a, [turn]
+set a, [a + turn_text]
+set c, 11
+set pc, copy ; Tail call
+
+
 
 ; Returns the address in VRAM of the (left side of the) given tile on the board.
 :pos_to_vram ; (row, col) -> addr
@@ -156,4 +215,5 @@ set pc, pop
 .dat 0x0930 ; Black squares: brown
 .dat 0x0ca5 ; White squares: tan
 .dat 0x006f ; Cursor background: medium blue
-.reserve 7 ; 7 more blacks to fill up the palette.
+.dat 0x0aaa ; Medium grey
+.reserve 6 ; 6 more blacks to fill up the palette.

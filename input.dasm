@@ -1,5 +1,29 @@
 ; Input handling for Chess.
 
+; The mechanism for moving a piece is to put the blue cursor over it, then press
+; space. That selects the piece and leaves it highlighted in green.
+; Then you move the blue cursor to the destination and press space again.
+
+; A small text block under the board shows whose turn it is, and which piece is
+; currently selected. It uses standard chess notation for pieces and positions:
+; nothing for pawns, (K)ing, (Q)ueen, (R)ook, (B)ishop, k(N)ight.
+; Files are lettered a-h from white's left (0-7 in my coordinates).
+; Ranks are numbered 1-8 from white's edge, (7-0 in my coordinates).
+; I just define maps from board coordinates to their text character.
+
+; TODO: Support full move history and reporting.
+; Eventually I want to support the full algebraic notation in a sidebar, but it
+; requires understanding legal moves, promotions, en-passant captures, and more.
+; The overall schema for reporting a piece is Pf8.
+; The overall schema for a move is Pdxf8++=Q
+; P is the piece, d is the departure file or rank (if needed for disambiguation)
+; x is present for captures, f8 is the destination, + for check and ++ for mate.
+; =Q gives pawn promotion including the target piece.
+
+; Since the full reporting syntax is complicated, I'll start with simply noting
+; the current state that's important: the turn, check and mate, and the selected
+; piece if any.
+
 ; Blocks until a key is available, then returns the key.
 :get_key ; () -> keycode
 set a, dev_keyboard
@@ -38,13 +62,56 @@ set pc, [b+1] ; Tail call to the handler.
 
 
 
+; Some state variables: the coordinates of the selection, if any.
+:selected_x .dat 0
+:selected_y .dat 0
+:selected .dat 0 ; 0 means no selection.
+:turn .dat 0 ; 0 = white, 1 = black
+
+
 .def key_handler_width, 2
 :key_handlers
 .dat 0x80, kh_up
 .dat 0x81, kh_down
 .dat 0x82, kh_left
 .dat 0x83, kh_right
+.dat 0x20, kh_space
 :key_handlers_end
+
+
+
+; board_addr reg, prefix
+; board_addr x, selected
+;   - sets x to the address into the board for selected_x and selected_y
+.macro board_addr=set %0, [%1_y] %n shl %0, 3 %n add %0, [%1_x] %n add %0, board
+
+; If there's no selection, set the selection to here.
+; If there is a selection, do the move.
+; TODO: Validate that the moves are legal.
+:kh_space ; () -> void
+ife [selected], 0
+  set pc, kh_space_select
+
+; Make the move!
+; Load the board slot for the cursor position.
+board_addr a, selected
+board_addr b, cursor
+ife a, b
+  set pc, pop  ; Do nothing if the src and dest are the same.
+
+set c, [a]     ; Pick up the piece.
+set [a], 0     ; Blank the original.
+set [b], c     ; Move the piece to the destination.
+set [selected], 0 ; Turn off selection mode.
+xor [turn], 1  ; And toggle the current player.
+
+
+:kh_space_select ; First touch, selects the current location.
+set [selected], 1
+set [selected_x], [cursor_x]
+set [selected_y], [cursor_y]
+set pc, pop
+
 
 :kh_up ; () -> void
 set a, [cursor_y]
