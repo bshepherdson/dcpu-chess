@@ -80,3 +80,5 @@ set pc, game_loop
 
 :vram .reserve 384
 
+:font .reserve 256
+

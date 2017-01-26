@@ -5,6 +5,20 @@ set a, dev_lem1802
 jsr get_device
 set c, a      ; C = device number for LEM
 
+; First, push the font into some block of high memory.
+set b, font
+set a, 4 ; Dump font
+hwi c ; Font is copied.
+
+; Now copy the chess font over the start.
+set push, c
+set a, chess_font
+set b, font
+set c, chess_font_len
+jsr copy
+set c, pop
+
+; And finish setting up the display.
 set b, vram
 set a, 0 ; Map screen
 hwi c
