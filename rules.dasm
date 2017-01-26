@@ -158,8 +158,56 @@ ifn [board+a], 0
 set pc, mv_rook_ray_loop
 
 
+; Bishops move like rooks, but diagonally. The absolute rank and file
+; differences between start and end positions must be equal.
 :mv_bishop
-set pc, mv_valid
+set a, [selected]
+to_file a
+set b, [cursor]
+to_file b
+sub b, a
+set c, b ; C is the difference in files.
+
+set a, [selected]
+to_rank a
+set b, [cursor]
+to_rank b
+sub b, a ; B is the difference in ranks.
+
+ife b, c
+  set pc, mv_bishop_ray
+
+set a, 0
+sub a, c ; A = -C
+ifn a, b
+  set pc, mv_invalid
+
+:mv_bishop_ray ; At this point, they share a diagonal. C is the file difference,
+               ; B is the rank difference.
+; The bishop's ray delta is plus or minus, 7 or 9. We start with +/- 8 based on
+; the rank difference.
+set a, 8
+ifu b, 0 ; Negative rank difference means the destination is above the start.
+  set a, -8 ; So we use a negative delta.
+
+ifu c, 0 ; Negative file difference means destination left of start.
+  sub a, 1  ; So we knock one off.
+ifa c, 0 ; Positive file difference means dest right of start.
+  add a, 1  ; So we add one on.
+
+; Now A is the correct delta.
+set b, [selected]
+set c, [cursor]
+
+:mv_bishop_ray_loop
+add b, a ; Start with a bump, so we're not examining ourself.
+ife b, c
+  set pc, mv_valid
+ifn [b+board], empty
+  set pc, mv_invalid
+set pc, mv_bishop_ray_loop
+
+
 
 :mv_queen
 set pc, mv_valid
