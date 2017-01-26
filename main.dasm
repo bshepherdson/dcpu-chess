@@ -31,9 +31,13 @@ set pc, main
 :initial_board
 .dat black_rook, black_knight, black_bishop, black_king
 .dat black_queen, black_bishop, black_knight, black_rook
-.fill black_pawn, 8
-.fill empty, 32 ; 8*4
-.fill white_pawn, 8
+
+; For testing, no pawns.
+.fill empty, 48 ; 8*6
+;.fill black_pawn, 8
+;.fill empty, 32 ; 8*4
+;.fill white_pawn, 8
+
 .dat white_rook, white_knight, white_bishop, white_queen
 .dat white_king, white_bishop, white_knight, white_rook
 

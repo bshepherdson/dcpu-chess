@@ -1,5 +1,8 @@
 ; Implementations of the chess rules - move generation and validation, etc.
 
+.macro to_rank=shr %0, 3
+.macro to_file=and %0, 7
+
 ; Expects selected to point at a piece to move, and cursor to be on the target
 ; space.
 ; Many pieces can move any distance in a variety of directions, but are blocked
@@ -107,12 +110,53 @@ set pc, mv_invalid
 :pawn_deltas .dat -8, 8 ; White then black.
 :pawn_2nd_ranks .dat 48, 8 ; White then black.
 
+; TODO: Add bits for each side's pawns, for capturing en passant. Those captures
+; can only be made the move immediately after the pawn double-moved, and only by 
+; other pawns.
 
+; Rooks move laterally in a straight line, limited only by other pieces and the
+; board edge. We check that the source and destination squares share a rank or
+; file, then whether there's anything in between.
 :mv_rook
-set pc, mv_valid
+brk 0
+set a, [selected]
+to_rank a
+set b, [cursor]
+to_rank b
+ife a, b
+  set pc, mv_rook_rank
 
-:mv_knight
-set pc, mv_valid
+set a, [selected]
+to_file a
+set b, [cursor]
+to_file b
+ifn a, b
+  set pc, mv_invalid ; If the file doesn't match either, no dice.
+
+; Matching files, so set the delta. It's either 8 or -8.
+set c, 8
+ifl [cursor], [selected]
+  set c, -8
+set pc, mv_rook_ray
+
+:mv_rook_rank ; Common rank.
+; The elta is either 1 or -1.
+set c, 1
+ifl [cursor], [selected]
+  set c, -1
+
+:mv_rook_ray ; C is the delta. Start from selected, move to cursor.
+set a, [selected]
+set b, [cursor]
+
+:mv_rook_ray_loop
+add a, c ; Move one slot immediately, or we'll bail when we see ourself.
+ife a, b
+  set pc, mv_valid ; Match, so stop.
+ifn [board+a], 0
+  set pc, mv_invalid ; Intervening piece, so invalid.
+set pc, mv_rook_ray_loop
+
 
 :mv_bishop
 set pc, mv_valid
@@ -121,6 +165,9 @@ set pc, mv_valid
 set pc, mv_valid
 
 :mv_king
+set pc, mv_valid
+
+:mv_knight
 set pc, mv_valid
 
 
