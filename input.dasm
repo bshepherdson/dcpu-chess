@@ -91,6 +91,14 @@ set pc, [b+1] ; Tail call to the handler.
 ife [selected], -1
   set pc, kh_space_select
 
+; Special case: if we try to "move" to the same location, actually deselect.
+ifn [cursor], [selected]
+  set pc, kh_space_move
+
+set [selected], -1
+set pc, pop
+
+:kh_space_move
 ; Validate the move.
 jsr validate_move
 ife a, 0
