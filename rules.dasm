@@ -2,6 +2,7 @@
 
 .macro to_rank=shr %0, 3
 .macro to_file=and %0, 7
+.macro negate=xor %0, -1 %n add %0, 1
 
 ; Expects selected to point at a piece to move, and cursor to be on the target
 ; space.
@@ -242,8 +243,42 @@ ifa b, 1
   set pc, mv_invalid
 set pc, mv_valid
 
+
+; Knights move 2 spaces in one dimension and 1 in the other. I compute the
+; absolute differences, and check them. Since knights can jump, no other
+; restrictions are required.
 :mv_knight
-set pc, mv_valid
+set a, [selected]
+to_rank a
+set b, [cursor]
+to_rank b
+sub b, a
+
+set c, b
+ifa c, 0
+  set pc, mv_knight_1
+negate c
+
+:mv_knight_1
+set a, [selected]
+to_file a
+set b, [cursor]
+to_file b
+sub b, a
+
+ifa b, 0
+  set pc, mv_knight_2
+negate b
+
+:mv_knight_2
+; Now both are positive differences. If one is 2 and the other 1, it's valid.
+ife b, 2
+  ife c, 1
+    set pc, mv_valid
+ife b, 1
+  ife c, 2
+    set pc, mv_valid
+set pc, mv_invalid
 
 
 ; Returns 1 for empty tiles, 0 for ownside pieces, and -1 for captures.
