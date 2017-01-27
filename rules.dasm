@@ -118,7 +118,6 @@ set pc, mv_invalid
 ; board edge. We check that the source and destination squares share a rank or
 ; file, then whether there's anything in between.
 :mv_rook
-brk 0
 set a, [selected]
 to_rank a
 set b, [cursor]
@@ -210,7 +209,11 @@ set pc, mv_bishop_ray_loop
 
 
 :mv_queen
-set pc, mv_valid
+; The queen is either a rook or bishop.
+jsr mv_rook
+ife a, 0
+  jsr mv_bishop
+set pc, pop
 
 :mv_king
 set pc, mv_valid
