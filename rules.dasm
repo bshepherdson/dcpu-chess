@@ -215,7 +215,31 @@ ife a, 0
   jsr mv_bishop
 set pc, pop
 
+; Kings move one space only, in any direction.
+; They can move two spaces only when castling.
+; They cannot put themselves in check.
+; TODO: Castling.
+; TODO: Checking check.
 :mv_king
+set a, [selected]
+to_rank a
+set b, [cursor]
+to_rank b
+sub b, a
+ifu b, -1
+  set pc, mv_invalid
+ifa b, 1
+  set pc, mv_invalid
+
+set a, [selected]
+to_file a
+set b, [cursor]
+to_file b
+sub b, a
+ifu b, -1
+  set pc, mv_invalid
+ifa b, 1
+  set pc, mv_invalid
 set pc, mv_valid
 
 :mv_knight
