@@ -2,6 +2,7 @@
 
 .macro to_rank=shr %0, 3
 .macro to_file=and %0, 7
+.macro to_side=shr %0, 3
 .macro negate=xor %0, -1 %n add %0, 1
 
 ; Expects selected to point at a piece to move, and cursor to be on the target
@@ -39,11 +40,11 @@ set pc, [a + move_validators] ; Tail call
 .dat mv_king
 
 
-:mv_invalid ; Generic helper that sets A to 0 and returns.
+:rfalse ; Generic helper that sets A to 0 and returns.
 set a, 0
 set pc, pop
 
-:mv_valid ; Generic helper that sets A to 1 and returns.
+:rtrue ; Generic helper that sets A to 1 and returns.
 set a, 1
 set pc, pop
 
@@ -68,7 +69,7 @@ ife b, -1
   set pc, mv_check_diag_legal
 
 ; Otherwise it's illegal for sure.
-set pc, mv_invalid
+set pc, rfalse
 
 ; Need to check that A+B (the landing site) is in the same row as A (one delta
 ; ahead)
@@ -78,8 +79,8 @@ add c, b ; A is now the base position and C is the actual target square.
 and a, 0xfff8 ; Flatten them both to rows.
 and c, 0xfff8 ; They should be equal now.
 ife a, c
-  set pc, mv_valid
-set pc, mv_invalid
+  set pc, rtrue
+set pc, rfalse
 
 
 
@@ -88,15 +89,15 @@ set pc, mv_invalid
 set c, [selected]
 add c, b ; Adjusting for delta.
 ife c, a
-  set pc, mv_valid ; Single step, so valid.
+  set pc, rtrue ; Single step, so valid.
 
 ; First, check that this middle space is clear, since we can't jump a piece.
 ifn [c+board], 0
-  set pc, mv_invalid
+  set pc, rfalse
 
 add c, b ; Add another delta in.
 ifn c, a
-  set pc, mv_invalid ; Definitely wrong if not there.
+  set pc, rfalse ; Definitely wrong if not there.
 
 ; If it is two steps ahead, I need to check the source (A) was in my own second
 ; rank. I flatten to the row number, then compare with the pawn_2nd_ranks table.
@@ -105,8 +106,8 @@ and a, 0xfff8
 set b, [turn]
 set b, [b + pawn_2nd_ranks]
 ife a, b
-  set pc, mv_valid
-set pc, mv_invalid
+  set pc, rtrue
+set pc, rfalse
 
 :pawn_deltas .dat -8, 8 ; White then black.
 :pawn_2nd_ranks .dat 48, 8 ; White then black.
@@ -131,7 +132,7 @@ to_file a
 set b, [cursor]
 to_file b
 ifn a, b
-  set pc, mv_invalid ; If the file doesn't match either, no dice.
+  set pc, rfalse ; If the file doesn't match either, no dice.
 
 ; Matching files, so set the delta. It's either 8 or -8.
 set c, 8
@@ -152,9 +153,9 @@ set b, [cursor]
 :mv_rook_ray_loop
 add a, c ; Move one slot immediately, or we'll bail when we see ourself.
 ife a, b
-  set pc, mv_valid ; Match, so stop.
+  set pc, rtrue ; Match, so stop.
 ifn [board+a], 0
-  set pc, mv_invalid ; Intervening piece, so invalid.
+  set pc, rfalse ; Intervening piece, so invalid.
 set pc, mv_rook_ray_loop
 
 
@@ -180,7 +181,7 @@ ife b, c
 set a, 0
 sub a, c ; A = -C
 ifn a, b
-  set pc, mv_invalid
+  set pc, rfalse
 
 :mv_bishop_ray ; At this point, they share a diagonal. C is the file difference,
                ; B is the rank difference.
@@ -202,9 +203,9 @@ set c, [cursor]
 :mv_bishop_ray_loop
 add b, a ; Start with a bump, so we're not examining ourself.
 ife b, c
-  set pc, mv_valid
+  set pc, rtrue
 ifn [b+board], empty
-  set pc, mv_invalid
+  set pc, rfalse
 set pc, mv_bishop_ray_loop
 
 
@@ -220,7 +221,6 @@ set pc, pop
 ; They can move two spaces only when castling.
 ; They cannot put themselves in check.
 ; TODO: Castling.
-; TODO: Checking check.
 :mv_king
 set a, [selected]
 to_rank a
@@ -228,9 +228,9 @@ set b, [cursor]
 to_rank b
 sub b, a
 ifu b, -1
-  set pc, mv_invalid
+  set pc, rfalse
 ifa b, 1
-  set pc, mv_invalid
+  set pc, rfalse
 
 set a, [selected]
 to_file a
@@ -238,10 +238,20 @@ set b, [cursor]
 to_file b
 sub b, a
 ifu b, -1
-  set pc, mv_invalid
+  set pc, rfalse
 ifa b, 1
-  set pc, mv_invalid
-set pc, mv_valid
+  set pc, rfalse
+
+; Kings can't move into check, so see if their target square is under attack by
+; the enemy.
+set a, [cursor]
+set b, [turn]
+xor b, 1 ; Flip B to be the enemy team, not the currently-moving team.
+jsr under_attack
+; Invert the result.
+ifn a, 0
+  set pc, rfalse ; Under attack means moving into check - illegal.
+set pc, rtrue ; Otherwise, it's legal.
 
 
 ; Knights move 2 spaces in one dimension and 1 in the other. I compute the
@@ -274,11 +284,11 @@ negate b
 ; Now both are positive differences. If one is 2 and the other 1, it's valid.
 ife b, 2
   ife c, 1
-    set pc, mv_valid
+    set pc, rtrue
 ife b, 1
   ife c, 2
-    set pc, mv_valid
-set pc, mv_invalid
+    set pc, rtrue
+set pc, rfalse
 
 
 ; Returns 1 for empty tiles, 0 for ownside pieces, and -1 for captures.
@@ -298,5 +308,101 @@ ifn b, [turn]
 
 ; Otherwise it's an ownside piece: illegal landing.
 set a, 0
+set pc, pop
+
+
+; Some helper functions, which eg. call a given function for each piece, or each
+; piece of a particular colour.
+
+; Calls the given function for each piece found on the board.
+:each_piece ; (fn(square)-> void) -> void
+set push, x
+set push, a
+set x, 0
+:each_piece_loop
+set a, x
+jsr peek
+add x, 1
+ifl x, 64
+  set pc, each_piece_loop
+set a, pop
+set x, pop
+set pc, pop
+
+
+; Given a function from a square to a boolean, return true if the function is
+; true for any piece, and false otherwise.
+:any_piece ; ( fn(square) -> bool ) -> bool
+set push, x
+set push, a
+set x, 0
+:any_piece_loop
+set a, x
+jsr peek
+ifn a, 0
+  set pc, any_piece_done
+
+add x, 1
+ifl x, 64
+  set pc, any_piece_loop
+
+:any_piece_done
+set c, pop ; Dump the TOS.
+set x, pop
+set pc, pop
+
+
+; Returns 1 if the given side can attack the given square.
+; For example, if the location of the black king is given, and white is given as
+; the side, this functino returns 1 if the black king is in check.
+:under_attack ; (square, side) -> attacked?
+set [under_attack_target], a
+set [under_attack_side], b
+set a, can_move
+set pc, any_piece ; tail call
+
+
+; The square that's currently under attack.
+:under_attack_target .dat 0
+; The side currently doing the attacking.
+:under_attack_side .dat 0
+
+
+; This is the lambda for under_attack's any_piece call.
+:can_move ; (square) -> bool?
+set b, [board+a] ; B is the actual piece.
+ife b, 0
+  set pc, rfalse ; Bail if it's empty.
+to_side b
+ifn b, [under_attack_side]
+  set pc, rfalse ; Not a piece of the attacking side.
+
+; Now check if our target piece can attack the target square.
+set push, [selected]
+set push, [cursor]  ; Save these for reentrancy.
+set [selected], a ; The source square.
+set [cursor], [under_attack_target]
+jsr validate_move
+; If the move is valid, then this piece can attack the target square.
+set [cursor], pop
+set [selected], pop
+set pc, pop
+
+
+
+; Finds a specific piece (usually a king). This matches the first (reading left
+; to right, top down) piece of this type found on the board.
+; Returns -1 if none is found.
+:find_piece ; (piece) -> square
+set b, a
+set a, 0
+:find_piece_loop
+ife b, [a+board]
+  set pc, pop
+add a, 1
+ifl b, 64
+  set pc, find_piece_loop
+
+set a, -1
 set pc, pop
 
