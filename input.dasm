@@ -125,6 +125,8 @@ set pc, pop
 :kh_space_select ; First touch, selects the current location.
 set a, [cursor]
 set a, [a+board] ; The piece under the cursor.
+ife a, 0
+  set pc, pop    ; Bail on empty spaces.
 shr a, 3 ; Just the owner bit.
 ife a, [turn] ; Owner of this piece and the current side must match:
   set [selected], [cursor] ; Select this piece.
