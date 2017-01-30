@@ -66,6 +66,9 @@ set pc, [b+1] ; Tail call to the handler.
 :selected .dat -1 ; -1 means no selection.
 :turn .dat 0 ; 0 = white, 1 = black
 
+.def white, 0
+.def black, 1
+
 
 .def key_handler_width, 2
 :key_handlers

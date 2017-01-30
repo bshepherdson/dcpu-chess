@@ -29,14 +29,15 @@ set pc, main
 .def empty, 0
 
 :initial_board
-.dat black_rook, black_knight, black_bishop, black_king
-.dat black_queen, black_bishop, black_knight, black_rook
+.dat black_rook, black_knight, black_bishop, black_queen
+.dat black_king, black_bishop, black_knight, black_rook
 
 ; For testing, no pawns.
-.fill empty, 48 ; 8*6
-;.fill black_pawn, 8
-;.fill empty, 32 ; 8*4
-;.fill white_pawn, 8
+;.fill empty, 48 ; 8*6
+
+.fill black_pawn, 8
+.fill empty, 32 ; 8*4
+.fill white_pawn, 8
 
 .dat white_rook, white_knight, white_bishop, white_queen
 .dat white_king, white_bishop, white_knight, white_rook
@@ -51,6 +52,15 @@ add a, 1
 add b, 1
 sub c, 1
 set pc, copy
+
+; Writes the value in A to [B]... C times.
+:fill_mem ; (value, dst, len) -> void
+ife c, 0
+  set pc, pop
+set [b], a
+add b, 1
+sub c, 1
+set pc, fill_mem
 
 
 :main
@@ -75,6 +85,7 @@ jsr render_board
 jsr render_cursor
 jsr label_board
 jsr print_turn
+jsr print_check
 
 jsr handle_key
 set pc, game_loop

@@ -164,6 +164,59 @@ add a, b
 set pc, pop
 
 
+; Prints indicators for who is in check in the upper right.
+; White is printed white-on-black at (4, 20),
+; Black is printed black-on-white at (4, 26).
+:print_check ; () ->
+; Clear the check region first.
+set a, 0
+set b, vram + 64 + 20
+set c, 11
+jsr fill_mem
+
+; Find the white king.
+set a, white_king
+jsr find_piece
+set b, black
+jsr under_attack
+ife a, 0
+  set pc, print_check_black
+
+; Print the white "check" message.
+set a, check_msg
+set b, vram + 64 + 20
+set c, 0x1000 ; white on black
+jsr print_message
+
+:print_check_black
+set a, black_king
+jsr find_piece
+set b, white
+jsr under_attack
+ife a, 0
+  set pc, pop
+
+; Print the black "check" message.
+set a, check_msg
+set b, vram + 64 + 26
+set c, 0x0100 ; black on white
+set pc, print_message ; tail call
+
+
+:check_msg .dat "Check", 0
+
+; Colors is a pre-assembled (0xFB00), with F the foreground colour and B the bg.
+; Msg is a 0-terminated C-style string.
+:print_message ; (msg, dest, colors)
+ife [a], 0
+  set pc, pop
+set [b], [a]
+bor [b], c
+add a, 1
+add b, 1
+set pc, print_message
+
+
 
 ; Cursor control.
 ; The cursor moves within the game board only. Its board index (0-based)

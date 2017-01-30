@@ -357,15 +357,16 @@ set pc, pop
 ; the side, this functino returns 1 if the black king is in check.
 :under_attack ; (square, side) -> attacked?
 set [under_attack_target], a
-set [under_attack_side], b
+set push, [turn]
+set [turn], b
 set a, can_move
-set pc, any_piece ; tail call
+jsr any_piece ; tail call
+set [turn], pop
+set pc, pop
 
 
 ; The square that's currently under attack.
 :under_attack_target .dat 0
-; The side currently doing the attacking.
-:under_attack_side .dat 0
 
 
 ; This is the lambda for under_attack's any_piece call.
@@ -374,7 +375,7 @@ set b, [board+a] ; B is the actual piece.
 ife b, 0
   set pc, rfalse ; Bail if it's empty.
 to_side b
-ifn b, [under_attack_side]
+ifn b, [turn]
   set pc, rfalse ; Not a piece of the attacking side.
 
 ; Now check if our target piece can attack the target square.
@@ -400,7 +401,7 @@ set a, 0
 ife b, [a+board]
   set pc, pop
 add a, 1
-ifl b, 64
+ifl a, 64
   set pc, find_piece_loop
 
 set a, -1
