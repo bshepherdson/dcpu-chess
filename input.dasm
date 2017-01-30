@@ -89,7 +89,6 @@ set pc, [b+1] ; Tail call to the handler.
 
 ; If there's no selection, set the selection to here.
 ; If there is a selection, do the move.
-; TODO: Validate that the moves are legal.
 :kh_space ; () -> void
 ife [selected], -1
   set pc, kh_space_select
@@ -120,6 +119,14 @@ add b, board
 set c, [a]     ; Pick up the piece.
 set [a], 0     ; Blank the original.
 set [b], c     ; Move the piece to the destination.
+
+; Call the post-move handlers. The move is complete, but [cursor] and [selected]
+; are still set corectly.
+set a, c
+and a, 7 ; Just the piece type.
+jsr [a + post_move_updates]
+
+; Now complete the move.
 set [selected], -1 ; Turn off selection mode.
 xor [turn], 1  ; And toggle the current player.
 set pc, pop

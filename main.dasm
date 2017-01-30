@@ -78,6 +78,11 @@ set b, board
 set c, 64
 jsr copy
 
+set [castling_table], 0
+set [castling_table+1], 0
+set pc, game_loop
+
+
 ; And accept input while rendering it.
 :game_loop
 set a, board

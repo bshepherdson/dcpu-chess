@@ -220,7 +220,6 @@ set pc, pop
 ; Kings move one space only, in any direction.
 ; They can move two spaces only when castling.
 ; They cannot put themselves in check.
-; TODO: Castling.
 :mv_king
 set a, [selected]
 to_rank a
@@ -232,15 +231,16 @@ ifu b, -1
 ifa b, 1
   set pc, rfalse
 
+; Regular king moves.
 set a, [selected]
 to_file a
 set b, [cursor]
 to_file b
 sub b, a
 ifu b, -1
-  set pc, rfalse
+  set pc, mv_king_check_castling
 ifa b, 1
-  set pc, rfalse
+  set pc, mv_king_check_castling
 
 ; Kings can't move into check, so see if their target square is under attack by
 ; the enemy.
@@ -253,6 +253,140 @@ ifn a, 0
   set pc, rfalse ; Under attack means moving into check - illegal.
 set pc, rtrue ; Otherwise, it's legal.
 
+
+
+; The king is moving too far left/right, so this might be a legal castle.
+; The conditions are:
+; - king is moving two spaces, left or right.
+; - there are no pieces between the king and the rook on that side.
+; - the spaces the king is in, moving through, and landing in are free of check.
+; - neither the king nor the rook on that side have ever moved.
+:mv_king_check_castling
+set a, [cursor]
+sub a, [selected]
+ife a, -2
+  set pc, mv_king_castle_left
+ife a, 2
+  set pc, mv_king_castle_right
+set pc, rfalse ; Not a castling move, so illegal.
+
+:mv_king_castle_left
+; First, check that castling is possible, bitwise.
+set a, [turn]
+set a, [castling_table+a]
+and a, 0x11 ; Bits 0 and 4 set for a left-side castle.
+ifn a, 0
+  set pc, rfalse ; Castling not legal: pieces have moved.
+
+; Next, check that the space in between is clear.
+set a, [selected]
+sub a, 1
+ifn [a+board], empty
+  set pc, rfalse
+sub a, 1
+ifn [a+board], empty
+  set pc, rfalse
+sub a, 1
+ifn [a+board], empty
+  set pc, rfalse
+
+; Now we re-combine, since the remaining checks are symmetric.
+set a, [cursor] ; Leftmost square of the three to check.
+jsr mv_castling_check_check
+ifn a, 0 ; Check detected!
+  set pc, rfalse
+
+; If we're still here, a left castle is legal, so do it.
+; We implement this by returning true.
+; The post-move code for the king will move the rook, on seeing a king moving
+; two spaces.
+set pc, rtrue
+
+
+:mv_king_castle_right
+; First, check that castling is possible, bitwise.
+set a, [turn]
+set a, [castling_table+a]
+and a, 0x90 ; Bits 7 and 4 set for a right-side castle.
+ifn a, 0
+  set pc, rfalse ; Castling not legal: pieces have moved.
+
+; Next, check that the space in between is clear.
+set a, [selected]
+add a, 1
+ifn [a+board], empty
+  set pc, rfalse
+add a, 1
+ifn [a+board], empty
+  set pc, rfalse
+
+; Now we re-combine, since the remaining checks are symmetric.
+set a, [selected] ; Leftmost square of the three to check.
+jsr mv_castling_check_check
+ifn a, 0 ; Check detected!
+  set pc, rfalse
+
+; If we're still here, a right castle is legal, so do it.
+; We implement this by returning true.
+; The post-move code for the king will move the rook, on seeing a king moving
+; two spaces.
+set pc, rtrue
+
+
+
+; Expects A to be the leftmost of the three spaces to check for being in check.
+:mv_castling_check_check
+set push, a
+set b, [turn]
+xor b, 1 ; Toggle the turn.
+jsr under_attack
+ifn a, 0
+  set pc, mv_castling_check_check_fail
+
+set a, peek
+add a, 1
+set b, [turn]
+xor b, 1
+jsr under_attack
+ifn a, 0
+  set pc, mv_castling_check_check_fail
+
+set a, peek
+add a, 2
+set b, [turn]
+xor b, 1
+jsr under_attack
+ifn a, 0
+  set pc, mv_castling_check_check_fail
+
+; If we got down here, we succeeded.
+set a, pop
+set a, 0
+set pc, pop
+
+:mv_castling_check_check_fail
+set a, pop
+set a, 1
+set pc, pop
+
+
+
+; Next, check that the king's three spaces are free of check.
+set b, [turn]
+xor b, 1 ; Other side.
+set push, b ; Save the side.
+
+set a, [selected]
+jsr under_attack
+ifn a, 0
+  set pc, rfalse ; Under attack, no dice.
+
+set a, [selected]
+sub a, 1
+set b, peek
+jsr under_attack
+ifn a, 0
+  set pc, rfalse ; Under attack, no dice.
 
 ; Knights move 2 spaces in one dimension and 1 in the other. I compute the
 ; absolute differences, and check them. Since knights can jump, no other
@@ -405,5 +539,124 @@ ifl a, 64
   set pc, find_piece_loop
 
 set a, -1
+set pc, pop
+
+
+
+; Post-move bookkeeping. Necessary for castling, en passant and pawn captures.
+; Expects [selected] and [cursor] to still be set correctly for the move, but
+; the move to have been made (eg. [selected] is empty and [cursor] contains our
+; piece).
+:post_move_updates
+.dat 0
+.dat post_mv_pawn
+.dat post_mv_rook
+.dat post_mv_knight
+.dat post_mv_bishop
+.dat post_mv_queen
+.dat post_mv_king
+
+; En-passant and pawn promotions. If the pawn just did a double move, we need to
+; mark it as en-passant. Those bits are cleared by pre-move code for each side.
+:post_mv_pawn
+; Check if we landed in an outer rank: pawn promotion.
+set a, [cursor]
+to_rank a
+ife a, 0
+  set pc, post_mv_pawn_promote
+ife a, 7
+  set pc, post_mv_pawn_promote
+
+; Otherwise, check if we're leaving my own side's second rank.
+set a, [selected]
+to_rank a
+ife a, 1
+  ife [turn], black
+    set pc, post_mv_pawn_en_passant
+ife a, 6
+  ife [turn], white
+    set pc, post_mv_pawn_en_passant
+
+; If we're still here, there's nothing special.
+set pc, pop
+
+; Our pawn is landing in the final rank and is auto-promoted to queen.
+; TODO: Add UI for choosing the new piece.
+:post_mv_pawn_promote
+set b, black_queen
+ife [turn], white
+  set b, white_queen
+set a, [cursor]
+set [a+board], b
+set pc, pop
+
+; Check if our pawn just moved two ranks, and set the en passant bit if so.
+; TODO Implement me! Currently ignored.
+:post_mv_pawn_en_passant
+set pc, pop
+
+
+
+; Castling is only possible if the pieces involved have never moved.
+; Therefore each rook, and the king, get bits in this table.
+; The bits used are the same as their starting files: bit 0 is the left rook,
+; bit 4 is the king, bit 7 is the right rook.
+; These bits start out clear, but then get set when the pieces have moved.
+:castling_table .dat 0, 0
+
+:post_mv_rook
+set a, [selected]
+to_file a
+ifn a, 0
+  ifn a, 7
+    set pc, pop
+
+set b, 1
+shl b, a
+set c, [turn]
+bor [c+castling_table], b
+set pc, pop
+
+:post_mv_knight ; Nothing special.
+set pc, pop
+
+:post_mv_bishop ; Nothing special.
+set pc, pop
+
+:post_mv_queen ; Nothing special.
+set pc, pop
+
+; Set the king's can't-castle-now bit.
+; If the last move was a castle, then the king will have moved two spaces.
+; In that case, we move the appropriate rook.
+:post_mv_king
+set c, [turn]
+bor [c+castling_table], 0x10
+
+set a, [selected]
+sub a, [cursor]
+ife a, -2 ; castling right
+  set pc, post_mv_king_castle_right
+ife a, 2  ; castling left
+  set pc, post_mv_king_castle_left
+set pc, pop
+
+:post_mv_king_castle_right
+set a, [cursor]
+and a, 0xfff8 ; Select just the rank.
+set b, a
+add b, 7 ; B is the rook.
+add a, 5 ; A is the destination.
+set [a+board], [b+board]
+set [b+board], empty
+set pc, pop
+
+:post_mv_king_castle_left
+set a, [cursor]
+and a, 0xfff8 ; Select just the rank.
+set b, a ; B is the rook.
+add a, 3 ; A is the destination.
+set [a+board], [b+board]
+set [b+board], empty
 set pc, pop
 
