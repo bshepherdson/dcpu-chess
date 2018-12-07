@@ -24,7 +24,7 @@ ife a, 0
 
 ; Now check that it's legal for the moving piece to actually get there.
 set a, [selected]
-set a, [board + a]
+set a, [a + board]
 and a, 7
 set pc, [a + move_validators] ; Tail call
 
@@ -154,7 +154,7 @@ set b, [cursor]
 add a, c ; Move one slot immediately, or we'll bail when we see ourself.
 ife a, b
   set pc, rtrue ; Match, so stop.
-ifn [board+a], 0
+ifn [a + board], 0
   set pc, rfalse ; Intervening piece, so invalid.
 set pc, mv_rook_ray_loop
 
@@ -273,7 +273,7 @@ set pc, rfalse ; Not a castling move, so illegal.
 :mv_king_castle_left
 ; First, check that castling is possible, bitwise.
 set a, [turn]
-set a, [castling_table+a]
+set a, [a + castling_table]
 and a, 0x11 ; Bits 0 and 4 set for a left-side castle.
 ifn a, 0
   set pc, rfalse ; Castling not legal: pieces have moved.
@@ -306,7 +306,7 @@ set pc, rtrue
 :mv_king_castle_right
 ; First, check that castling is possible, bitwise.
 set a, [turn]
-set a, [castling_table+a]
+set a, [a + castling_table]
 and a, 0x90 ; Bits 7 and 4 set for a right-side castle.
 ifn a, 0
   set pc, rfalse ; Castling not legal: pieces have moved.
@@ -505,7 +505,7 @@ set pc, pop
 
 ; This is the lambda for under_attack's any_piece call.
 :can_move ; (square) -> bool?
-set b, [board+a] ; B is the actual piece.
+set b, [a + board] ; B is the actual piece.
 ife b, 0
   set pc, rfalse ; Bail if it's empty.
 to_side b

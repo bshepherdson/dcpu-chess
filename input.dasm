@@ -42,6 +42,7 @@ set a, c
 set pc, pop
 
 
+.def key_handler_width, 2
 
 :handle_key ; () -> void
 jsr get_key ; A is now the latest key.
@@ -70,7 +71,6 @@ set pc, [b+1] ; Tail call to the handler.
 .def black, 1
 
 
-.def key_handler_width, 2
 :key_handlers
 .dat 0x80, kh_up
 .dat 0x81, kh_down
